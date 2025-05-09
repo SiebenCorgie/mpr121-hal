@@ -2,8 +2,9 @@
 use embedded_hal::i2c::I2c;
 #[cfg(feature = "async")]
 use embedded_hal_async::i2c::I2c;
+use strum::IntoEnumIterator;
 
-use crate::{registers::*, NUM_TOUCH_CHANNELS};
+use crate::{registers::*, Channel, DebounceNumber, NUM_TOUCH_CHANNELS};
 use crate::{Mpr121Address, Mpr121Error};
 
 pub struct Mpr121<I2C: I2c> {
@@ -31,7 +32,7 @@ impl<I2C: I2c> Mpr121<I2C> {
     ) -> Result<Self, Mpr121Error> {
         let mut dev = Mpr121 { i2c, addr };
         //reset
-        let error = dev.write_register(SOFTRESET, 0x63).await.err();
+        let error = dev.write_register(Register::SoftReset, 0x63).await.err();
         error.map(|e| match e {
             Mpr121Error::ReadError(reg) => Mpr121Error::ResetFailed {
                 was_read: true,
@@ -43,16 +44,16 @@ impl<I2C: I2c> Mpr121<I2C> {
             },
             _ => Mpr121Error::ResetFailed {
                 was_read: false,
-                reg: 0xff,
+                reg: Register::SoftReset,
             },
         });
 
         // Stop
-        dev.write_register(ECR, 0x0).await?;
+        dev.write_register(Register::Ecr, 0x0).await?;
 
         if check_reset_flags {
             // read config register
-            let config = dev.read_reg8(CONFIG2).await?;
+            let config = dev.read_reg8(Register::Config1).await?;
 
             // Check if it is 0x24, which is the default configuration.
             // Otherwise bail.
@@ -78,36 +79,47 @@ impl<I2C: I2c> Mpr121<I2C> {
         //Setup Filters MHD==MaximumHalfDelta, NHD=NoiseHalfDelta
         // Have a look at 5.5 in the data sheet for more information.
 
-        self.write_register(MHDR, 0x01).await?;
-        self.write_register(NHDR, 0x01).await?;
-        self.write_register(NCLR, 0x0e).await?;
-        self.write_register(FDLR, 0x00).await?;
+        self.write_register(Register::MaximumHalfDeltaRising, 0x01)
+            .await?;
+        self.write_register(Register::NoiseCountLimitRising, 0x01)
+            .await?;
+        self.write_register(Register::NoiseCountLimitRising, 0x0e)
+            .await?;
+        self.write_register(Register::FilterDelayCountLimitRising, 0x00)
+            .await?;
 
-        self.write_register(MHDF, 0x01).await?;
-        self.write_register(NHDF, 0x05).await?;
-        self.write_register(NCLF, 0x01).await?;
-        self.write_register(FDLF, 0x00).await?;
+        self.write_register(Register::MaximmHalfDeltaFalling, 0x01)
+            .await?;
+        self.write_register(Register::NoiseHalfDeltaFalling, 0x05)
+            .await?;
+        self.write_register(Register::NoiseCountLimitFalling, 0x01)
+            .await?;
+        self.write_register(Register::FilterDelayCountFalling, 0x00)
+            .await?;
 
-        self.write_register(NHDT, 0x00).await?;
-        self.write_register(NCLT, 0x00).await?;
-        self.write_register(FDLT, 0x00).await?;
+        self.write_register(Register::NoiseHalfDeltaTouched, 0x00)
+            .await?;
+        self.write_register(Register::NoiseCountLimitTouched, 0x00)
+            .await?;
+        self.write_register(Register::FilterDelayCountLimitTouched, 0x00)
+            .await?;
 
-        self.write_register(DEBOUNCE, 0x0).await?;
-        self.write_register(CONFIG1, 0x10).await?;
-        self.write_register(CONFIG2, 0x20).await?;
+        self.write_register(Register::Debounce, 0x0).await?;
+        self.write_register(Register::Config1, 0x10).await?;
+        self.write_register(Register::Config2, 0x20).await?;
 
         if use_auto_config {
-            self.write_register(AUTOCONFIG0, 0x0b).await?;
+            self.write_register(Register::AutoConfig0, 0x0b).await?;
 
             //Use 3.3V VDD
-            self.write_register(UPLIMIT, 200).await?; // = ((Vdd - 0.7)/Vdd) * 256;
-            self.write_register(TARGETLIMIT, 180).await?; // = UPLIMIT * 0.9
-            self.write_register(LOWLIMIT, 130).await?; // = UPLIMIT * 0.65
+            self.write_register(Register::UpLimit, 200).await?; // = ((Vdd - 0.7)/Vdd) * 256;
+            self.write_register(Register::TargetLimit, 180).await?; // = UPLIMIT * 0.9
+            self.write_register(Register::LowLimit, 130).await?; // = UPLIMIT * 0.65
         }
 
         //enable electrodes and return to start mode
         let ecr_setting = 0b10000000 + NUM_TOUCH_CHANNELS; // enable all 12 electrodes
-        self.write_register(ECR, ecr_setting).await?;
+        self.write_register(Register::Ecr, ecr_setting).await?;
         Ok(())
     }
 
@@ -119,7 +131,6 @@ impl<I2C: I2c> Mpr121<I2C> {
     #[maybe_async::maybe_async]
     pub async fn new_default(i2c: I2C) -> Result<Self, Mpr121Error> {
         let result = Self::new(i2c, Mpr121Address::Default, false, true).await?;
-
         Ok(result)
     }
 
@@ -128,7 +139,7 @@ impl<I2C: I2c> Mpr121<I2C> {
     #[maybe_async::maybe_async]
     pub async fn is_over_current_set(&mut self) -> Result<bool, Mpr121Error> {
         const OVER_CURRENT_PROTECTION_FLAG_MASK: u8 = 0b1000_0000;
-        let read = self.read_reg8(TOUCHSTATUS_H).await?;
+        let read = self.read_reg8(Register::TouchStatus0_8).await?;
         //If bit D7 is set, we have OVCF
         Ok((read & (OVER_CURRENT_PROTECTION_FLAG_MASK)) > 0)
     }
@@ -139,22 +150,26 @@ impl<I2C: I2c> Mpr121<I2C> {
     /// Have a look at [note AN3892](https://www.nxp.com/docs/en/application-note/AN3892.pdf) of the mpr121 guidelines.
     #[maybe_async::maybe_async]
     pub async fn set_thresholds(&mut self, touch: u8, release: u8) -> Result<(), Mpr121Error> {
-        for i in 0..NUM_TOUCH_CHANNELS {
+        for channel in Channel::iter() {
             //Note ignoring false set thresholds
-            self.write_register(TOUCHTH_0 + 2 * i, touch).await?;
-            self.write_register(RELEASETH_0 + 2 * i, release).await?;
+            self.write_register(Register::get_treshold_register(channel), touch)
+                .await?;
+            self.write_register(Register::get_release_register(channel), release)
+                .await?;
         }
         Ok(())
     }
 
     /// Sets the count for both touch and release. See 5.7 of the data sheet.
     ///
-    /// value must be 0..8, is clamped if it exceeds.
     #[maybe_async::maybe_async]
-    pub async fn set_debounce(&mut self, debounce_count: u8) -> Result<(), Mpr121Error> {
-        let debounce = debounce_count.min(7);
-        let bits = (debounce << 4) | (debounce);
-        self.write_register(DEBOUNCE, bits).await?;
+    pub async fn set_debounce(
+        &mut self,
+        trigger_debounce: DebounceNumber,
+        release_debounce: DebounceNumber,
+    ) -> Result<(), Mpr121Error> {
+        let bits = (u8::from(release_debounce) << 4) | (u8::from(trigger_debounce));
+        self.write_register(Register::Debounce, bits).await?;
 
         Ok(())
     }
@@ -166,11 +181,9 @@ impl<I2C: I2c> Mpr121<I2C> {
     ///
     /// Note that an error is returned, if `channel > 11`.
     #[maybe_async::maybe_async]
-    pub async fn get_filtered(&mut self, channel: u8) -> Result<u16, Mpr121Error> {
-        if channel > NUM_TOUCH_CHANNELS - 1 {
-            return Err(Mpr121Error::ChannelExceed);
-        }
-        let result = self.read_reg16(FILTDATA_0L + channel * 2).await?;
+    pub async fn get_filtered(&mut self, channel: Channel) -> Result<u16, Mpr121Error> {
+        let register = Register::get_filtered_data_msb(channel);
+        let result = self.read_reg16(register).await?;
         Ok(result)
     }
 
@@ -178,11 +191,7 @@ impl<I2C: I2c> Mpr121<I2C> {
     ///
     /// Note that an error is returned if `channel > 11`, or reading failed
     #[maybe_async::maybe_async]
-    pub async fn get_baseline(&mut self, channel: u8) -> Result<u8, Mpr121Error> {
-        if channel > NUM_TOUCH_CHANNELS - 1 {
-            return Err(Mpr121Error::ChannelExceed);
-        }
-
+    pub async fn get_baseline(&mut self, channel: Channel) -> Result<u8, Mpr121Error> {
         //NOTE: the original reads a 8bit value and left shifts 2bit.
         //      While the shift is correct the data sheet mentions:
         //
@@ -196,7 +205,8 @@ impl<I2C: I2c> Mpr121<I2C> {
         //      6bit, since we loose the 2MSB.
         //
         //      Therefore we read 16bit, mask out the top 6, and then shift
-        let mut value = self.read_reg16(BASELINE_0 + channel).await?;
+        let register = Register::get_baseline(channel);
+        let mut value = self.read_reg16(register).await?;
         value &= 0b00000011_11111100;
         let cast = (value << 2).try_into().unwrap_or(0);
         Ok(cast)
@@ -210,21 +220,15 @@ impl<I2C: I2c> Mpr121<I2C> {
     #[maybe_async::maybe_async]
     pub async fn get_touched(&mut self) -> Result<u16, Mpr121Error> {
         //mask upper four bits returns the rest
-        let unmasked = self.read_reg16(TOUCHSTATUS_L).await?;
+        let unmasked = self.read_reg16(Register::TouchStatus0_8).await?;
         Ok(unmasked & 0x0fff)
     }
 
     ///Returns the touch state of the given sensor.
     ///
-    /// Returns false if `channel>11`, or reading failed.
     #[maybe_async::maybe_async]
-    pub async fn get_sensor_touch(&mut self, channel: u8) -> bool {
-        if channel > NUM_TOUCH_CHANNELS - 1 {
-            return false;
-        }
-
-        //Masks all bits except for our channel, then returns true if the bit is set
-        let result = self.get_touched().await;
-        result.unwrap_or(0) & (1 << channel) > 0
+    pub async fn get_sensor_touch(&mut self, channel: Channel) -> Result<bool, Mpr121Error> {
+        let result = self.get_touched().await?;
+        Ok(result & channel.get_mask() > 0)
     }
 }
