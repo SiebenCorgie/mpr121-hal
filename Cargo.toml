@@ -1,8 +1,8 @@
 [package]
 name = "mpr121-hal"
-version = "0.5.0"
+version = "1.0.0"
 edition = "2021"
-authors = ["Tendsin Mende <tendsin@protonmail.com>"]
+authors = ["Tendsin Mende <tendsin@protonmail.com>", "Scott Gibb <smgibb@yahoo.com"]
 repository = "https://gitlab.com/tendsinmende/mpr121-hal"
 license = "MIT OR Apache-2.0"
 description = "MPR121 proximity capacitive touch sensor controller hal driver implementation."
@@ -39,6 +39,9 @@ async = ["dep:embedded-hal-async"]
 embedded-hal = { version = "1.0", optional = true }
 embedded-hal-async = { version = "1.0", optional = true }
 maybe-async = {version ="0.2.10"}
+num_enum = {version = "0.7.3",default-features = false}
+strum = {version = "0.27.0", default-features = false}
+strum_macros = "0.27.1"
 
 # FTDI USB driver used for the examples alongside a FTDI FT232H USB to I2C/SPI bridge
 # This is not a hard dependency, but it is used in the examples
@@ -49,4 +52,9 @@ ftdi-embedded-hal = { version = "0.23.0", features = [
     "libftd2xx-static",
 ] }
 shared-bus = "0.3.1"
+tests-common ={ path = "./tests-common" }
 
+[workspace]
+members = [
+    "tests-common"
+]
