@@ -1,7 +1,9 @@
 use ftdi::Device;
 use ftdi_embedded_hal::{self as hal, I2c};
 use mpr121_hal::mpr121::Mpr121;
+use mpr121_hal::Channel;
 use std::error::Error;
+use strum::IntoEnumIterator;
 
 #[cfg(feature = "async")]
 compile_error!("You cant run this example in async mode. Try setting the sync feature");
@@ -13,14 +15,23 @@ fn main() {
     // You can now use the i2c instance to communicate with the MPR121.
     let mut mpr121 = Mpr121::new(i2c_bus, mpr121_hal::Mpr121Address::Default, true, true).unwrap();
     loop {
+        println!("Calling get_touched!");
         // Read the touch status
         let touch_status = mpr121.get_touched().unwrap();
         println!("Touch status: {:?}", touch_status);
-
-        // Read the release statuse
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        // Read the release status
         let release_status = mpr121.get_touched().unwrap();
         println!("Release status: {:?}", release_status);
-
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+        println!("Calling get_touched!");
+        for selected in Channel::iter() {
+            println!(
+                "Channel: {:?} : Touch Status: {:?}",
+                selected,
+                mpr121.get_sensor_touch(selected).unwrap(),
+            );
+        }
         // Add a delay to avoid flooding the output
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
