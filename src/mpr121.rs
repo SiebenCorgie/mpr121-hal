@@ -35,9 +35,6 @@ impl<I2C: I2c> Mpr121<I2C> {
     /// If `use_auto_config` is set, the controller will use its auto configuration routine to setup
     /// charging parameters whenever it is transitioned from STOP to START mode.
     ///
-    /// If `check_reset_flags` is set, the reset will be checked by reading back the 0x5C register. Note however, that
-    /// sometime circuit configurations might be too slow/setup-incorrectly for that check. Which is why it is optional.
-    ///
     /// Note that we use the same default values as the Adafruit implementation, except for threshold values.
     /// Use [set_thresholds](Self::set_thresholds) to define those.
     ///
@@ -48,26 +45,17 @@ impl<I2C: I2c> Mpr121<I2C> {
         addr: Mpr121Address,
         delay: &mut impl DelayNs,
         use_auto_config: bool,
-        check_reset_flags: bool,
     ) -> Result<Self, Mpr121Error> {
         let mut dev = Mpr121 { i2c, addr };
         dev.reset_verify(delay).await?;
-        // Stop
-        dev.write_register(Register::Ecr, 0x0).await?;
 
-        if check_reset_flags {
-            // read config register
-            let config = dev
-                .read_reg8(Register::GlobalChargeDischargeTimeConfig)
-                .await?;
-
-            if config != Register::GlobalChargeDischargeTimeConfig.get_initial_value() {
-                return Err(Mpr121Error::InitFailed {
-                    // Check if device is having a short circuit fault
-                    over_current_protection: dev.is_over_current_set().await?,
-                });
-            }
+        // Check for overcurrent
+        if dev.is_over_current_set().await? {
+            return Err(Mpr121Error::OverCurrent);
         }
+
+        // Put Device in Stop Mode
+        dev.write_register(Register::Ecr, 0x0).await?;
         //Initialise the device to the similar settings as Adafruit
         dev.set_thresholds(
             Self::DEFAULT_TOUCH_THRESHOLD,
@@ -195,7 +183,7 @@ impl<I2C: I2c> Mpr121<I2C> {
     /// Have a look at [new](Self::new) for further documentation.
     #[maybe_async::maybe_async]
     pub async fn new_default(i2c: I2C, delay: &mut impl DelayNs) -> Result<Self, Mpr121Error> {
-        let result = Self::new(i2c, Mpr121Address::Default, delay, false, true).await?;
+        let result = Self::new(i2c, Mpr121Address::Default, delay, true).await?;
         Ok(result)
     }
     /// Returns true if over-current is detected by the device.
@@ -220,7 +208,7 @@ impl<I2C: I2c> Mpr121<I2C> {
         for i in 0..Channel::NUM_CHANNELS {
             //Note ignoring false set thresholds
             self.write_register(
-                Register::get_treshold_register(
+                Register::get_threshold_register(
                     Channel::try_from(i).expect("Channel Iteration Should not fail"),
                 ),
                 touch,

@@ -39,10 +39,9 @@ pub enum Mpr121Error {
     WriteError(Register),
     ///If sending the reset signal failed, contains the register that failed.
     ResetFailed { was_read: bool, reg: Register },
-    ///If the reset did not happen as expected. if ovcp is set, the reset failed because over-current protection
-    /// is active.
-    InitFailed { over_current_protection: bool },
-    /// Wrong Device Connected
+    /// During Startup if there is an overcurrent detection, the driver will fail to initialise indicating a hardware fault
+    OverCurrent,
+    /// Wrong Device Connected, this can also happen if the device state is invalid possible due to a short circuit/overcurrent event
     WrongDevice {
         mismatched_register: Register,
         expected: u8,

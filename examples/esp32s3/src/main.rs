@@ -50,15 +50,9 @@ async fn main(spawner: Spawner) {
         ))
     };
     let i2c = I2cDevice::new(i2c_bus);
-    let mut mpr121 = Mpr121::new(
-        i2c,
-        Mpr121Address::Default,
-        &mut embassy_time::Delay,
-        true,
-        true,
-    )
-    .await
-    .expect("Failed to initialize MPR121");
+    let mut mpr121 = Mpr121::new(i2c, Mpr121Address::Default, &mut embassy_time::Delay, true)
+        .await
+        .expect("Failed to initialize MPR121");
 
     loop {
         // Read the touch status

@@ -19,7 +19,6 @@ fn main() {
         mpr121_hal::Mpr121Address::Default,
         &mut Delay::new(),
         true,
-        true,
     )
     .unwrap();
     loop {
