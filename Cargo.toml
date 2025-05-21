@@ -50,4 +50,9 @@ ftdi-embedded-hal = { version = "0.23.0", features = [
     "libftd2xx-static",
 ] }
 shared-bus = "0.3.1"
+tests-common ={ path = "./tests-common", features = ["sync"]}
 
+[workspace]
+members = [
+    "tests-common"
+]

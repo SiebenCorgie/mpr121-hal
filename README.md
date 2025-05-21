@@ -106,6 +106,16 @@ Currently at the time of this commit `rust fmt` is not supported as part of Mega
 cargo fmt --all
 ```
 
+## Running Integration Tests
+
+At present there is limited integration tests for the driver. Generic tests that can be applied across numerous architectures/platforms are stored in a [sub crate](./tests-common/) within the repository. These are platform agnostic and are focused on the driver itself. Within the [tests](./tests/) directory are platform dependent tests which can run on the developer OS or MCU platforms.
+
+When running the tests on the developer platform with the FT232H Breakout Board, you will need to run them single threaded and not in parallel. This is due to there only being one I2C hardware block and the locking around that. To do that, run the following command:
+
+```bash
+cargo test -- --test-threads=1
+```
+
 ## License
 
 Licensed under either of

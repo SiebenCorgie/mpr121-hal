@@ -220,7 +220,7 @@ impl<I2C: I2c> Mpr121<I2C> {
         for i in 0..Channel::NUM_CHANNELS {
             //Note ignoring false set thresholds
             self.write_register(
-                Register::get_treshold_register(
+                Register::get_threshold_register(
                     Channel::try_from(i).expect("Channel Iteration Should not fail"),
                 ),
                 touch,
