@@ -24,7 +24,7 @@ mod i2c_driver {
         let hal = match hal::FtHal::init_freq(device, BAUDRATE) {
             Ok(hal) => hal,
             Err(err) => {
-                eprintln!("Failed to initialise HAL: {}", err);
+                eprintln!("Failed to initialise HAL: {err}");
                 return Err(Box::new(err));
             }
         };
@@ -32,7 +32,7 @@ mod i2c_driver {
         let i2c = match hal.i2c() {
             Ok(i2c) => i2c,
             Err(err) => {
-                eprintln!("Failed to initialise I2C: {}", err);
+                eprintln!("Failed to initialise I2C: {err}");
                 return Err(Box::new(err));
             }
         };
