@@ -54,7 +54,7 @@ jobs:
     steps:
       # Git Checkout
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
 
@@ -164,7 +164,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Rustfmt check on src
         run: cargo fmt --manifest-path Cargo.toml -- --check
       - name: Rustfmt check on esp32 example
@@ -175,7 +175,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Install Rust for Xtensa
         uses: esp-rs/xtensa-toolchain@v1.6
         with:
